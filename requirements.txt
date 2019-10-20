@@ -1,0 +1,2 @@
+-i https://pypi.org/simple
+git+git://github.com/bfoz/parsers-python@master#egg=parsers

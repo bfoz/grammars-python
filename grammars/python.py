@@ -1,7 +1,7 @@
 import re
 
 import grammar
-from grammar import Alternation, Concatenation, Repetition
+from grammar import Alternation, Concatenation, List, Repetition
 
 """ Grammar for Python
 
@@ -471,56 +471,70 @@ SimpleStatement = Concatenation(small_stmt, Concatenation(';', small_stmt).any, 
 # except_clause: 'except' [test ['as' NAME]]
 except_clause = Concatenation('except', Concatenation(_test, Concatenation('as', NAME).optional))
 
-# tfpdef: NAME [':' test]
-tfpdef = Concatenation(NAME, Concatenation(':', _test).optional)
+# annotation: expression
+# https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L112
+annotation = _test
 
-# typedargslist: (tfpdef ['=' test] (',' tfpdef ['=' test])* [',' [
-#         '*' [tfpdef] (',' tfpdef ['=' test])* [',' ['**' tfpdef [',']]]
-#       | '**' tfpdef [',']]]
-#   | '*' [tfpdef] (',' tfpdef ['=' test])* [',' ['**' tfpdef [',']]]
-#   | '**' tfpdef [','])
-typedargslist = Alternation(
+# plain_name: NAME [':' annotation]
+# https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L110
+plain_name = Concatenation(NAME, Concatenation(':', annotation).optional)
+
+# kwds: '**' NAME [':' annotation]
+# https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L111
+kwds = Concatenation('**', NAME, Concatenation(':', annotation).optional)
+
+# name_with_default: plain_name '=' expression
+# https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L109
+name_with_default = Concatenation(plain_name, '=', _test)
+
+# names_with_default: name_with_default (',' name_with_default)*
+# https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L103
+names_with_default = List(name_with_default, separator=',')
+
+# plain_names: plain_name !'=' (',' plain_name !'=')*
+# https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L104
+plain_names = List(plain_name, separator=',')
+
+# star_etc: ( '*' NAME [':' annotation] (',' plain_name ['=' expression])* [',' kwds] [',']
+#           | '*' (',' plain_name ['=' expression])+ [',' kwds] [',']
+#           | kwds [',']
+#           )
+# https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L105
+star_etc = Alternation(
     Concatenation(
-        tfpdef,
-        Concatenation('=', _test),
-        Concatenation(
-            ',',
-            tfpdef,
-            Concatenation('=', _test).optional
-        ).any,
-        Concatenation(
-            ',',
-            Concatenation(
-                '*',
-                tfpdef.optional,
-                Concatenation(
-                    ',',
-                    tfpdef,
-                    Concatenation('=', _test).optional
-                ).any,
-                Alternation(
-                    Concatenation(
-                        ',',
-                        Concatenation('**', tfpdef, Repetition.optional(',')).optional
-                    ).optional,
-                    Concatenation('**', tfpdef, Repetition.optional(','))
-                )
-            ).optional
-        ).optional
+        '*',
+        plain_name,
+        Concatenation(',', plain_name, Concatenation('=', _test).optional).any,
+        Concatenation(',', kwds).optional,
+        Repetition.optional(',')
     ),
-    Concatenation('*',
-        tfpdef.optional,
-        Concatenation(
-            ',',
-            tfpdef,
-            Concatenation('=', _test).optional
-        ).any,
-        Concatenation(
-            ',',
-            Concatenation('**', tfpdef, Repetition.optional(',')).optional
-        ).optional
+    Concatenation(
+        '*',
+        Concatenation(',', plain_name, Concatenation('=', _test).optional).one_or_more,
+        Concatenation(',', kwds).optional,
+        Repetition.optional(',')
     ),
-    Concatenation('**', tfpdef, Repetition.optional(','))
+    Concatenation(kwds, Repetition.optional(','))
+)
+
+# parameters: ( slash_without_default [',' plain_names] [',' names_with_default] [',' [star_etc]]
+#             | slash_with_default [',' names_with_default] [',' [star_etc]]
+#             | plain_names [',' names_with_default] [',' [star_etc]]
+#             | names_with_default [',' [star_etc]]
+#             | star_etc
+#             )
+# https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L95
+parameters = Alternation(
+    Concatenation(
+        plain_names,
+        Concatenation(',', names_with_default).optional,
+        Concatenation(',', star_etc.optional).optional
+    ),
+    Concatenation(
+        names_with_default,
+        Concatenation(',', star_etc.optional).optional
+    ),
+    star_etc
 )
 
 """ ---> stmt """

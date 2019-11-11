@@ -1,7 +1,7 @@
 import re
 
 import grammar
-from grammar import Alternation, Concatenation, List, Repetition
+from grammar import Alternation, Concatenation, List, Repetition, add_action, attribute
 
 """ Grammar for Python
 
@@ -479,6 +479,17 @@ annotation = _test
 # https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L110
 plain_name = Concatenation(NAME, Concatenation(':', annotation).optional)
 
+@attribute(plain_name)
+def annotation(self):
+    try:
+        return self.items[1][0].items[1]
+    except IndexError:
+        return None
+
+@attribute(plain_name)
+def name(self):
+    return self.items[0].items
+
 # kwds: '**' NAME [':' annotation]
 # https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L111
 kwds = Concatenation('**', NAME, Concatenation(':', annotation).optional)
@@ -494,6 +505,12 @@ names_with_default = List(name_with_default, separator=',')
 # plain_names: plain_name !'=' (',' plain_name !'=')*
 # https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L104
 plain_names = List(plain_name, separator=',')
+
+@attribute(plain_names)
+def __iter__(self):
+    yield self.items[0].name
+    for n in self.items[1]:
+        yield n.items[1].name
 
 # star_etc: ( '*' NAME [':' annotation] (',' plain_name ['=' expression])* [',' kwds] [',']
 #           | '*' (',' plain_name ['=' expression])+ [',' kwds] [',']
@@ -544,11 +561,16 @@ stmt = Alternation()
 # suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT
 suite = SimpleStatement | Concatenation(NEWLINE, INDENT, stmt.one_or_more)
 
-# parameters: '(' [typedargslist] ')'
-parameters = Concatenation('(', typedargslist.optional, ')')
-
 # funcdef: 'def' NAME parameters ['->' test] ':' suite
-funcdef = Concatenation('def', NAME, parameters, Concatenation('->', _test).optional, ':', suite)
+funcdef = Concatenation('def', NAME, '(', parameters.optional, ')', Concatenation('->', _test).optional, ':', suite)
+
+@attribute(funcdef)
+def name(self):
+    return self.items[1].items
+
+@attribute(funcdef)
+def parameters(self):
+    return list(self.items[3])
 
 # async_funcdef: 'async' funcdef
 async_funcdef = Concatenation('async', funcdef)

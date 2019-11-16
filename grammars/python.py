@@ -492,47 +492,26 @@ def name(self):
 
 # kwds: '**' NAME [':' annotation]
 # https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L111
-kwds = Concatenation('**', NAME, Concatenation(':', annotation).optional)
 
 # name_with_default: plain_name '=' expression
 # https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L109
 name_with_default = Concatenation(plain_name, '=', _test)
 
+@attribute(name_with_default)
+def name(self):
+    return self.items[0].name
+
 # names_with_default: name_with_default (',' name_with_default)*
 # https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L103
-names_with_default = List(name_with_default, separator=',')
 
 # plain_names: plain_name !'=' (',' plain_name !'=')*
 # https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L104
-plain_names = List(plain_name, separator=',')
-
-@attribute(plain_names)
-def __iter__(self):
-    yield self.items[0].name
-    for n in self.items[1]:
-        yield n.items[1].name
 
 # star_etc: ( '*' NAME [':' annotation] (',' plain_name ['=' expression])* [',' kwds] [',']
 #           | '*' (',' plain_name ['=' expression])+ [',' kwds] [',']
 #           | kwds [',']
 #           )
 # https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L105
-star_etc = Alternation(
-    Concatenation(
-        '*',
-        plain_name,
-        Concatenation(',', plain_name, Concatenation('=', _test).optional).any,
-        Concatenation(',', kwds).optional,
-        Repetition.optional(',')
-    ),
-    Concatenation(
-        '*',
-        Concatenation(',', plain_name, Concatenation('=', _test).optional).one_or_more,
-        Concatenation(',', kwds).optional,
-        Repetition.optional(',')
-    ),
-    Concatenation(kwds, Repetition.optional(','))
-)
 
 # parameters: ( slash_without_default [',' plain_names] [',' names_with_default] [',' [star_etc]]
 #             | slash_with_default [',' names_with_default] [',' [star_etc]]
@@ -541,18 +520,17 @@ star_etc = Alternation(
 #             | star_etc
 #             )
 # https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L95
-parameters = Alternation(
-    Concatenation(
-        plain_names,
-        Concatenation(',', names_with_default).optional,
-        Concatenation(',', star_etc.optional).optional
-    ),
-    Concatenation(
-        names_with_default,
-        Concatenation(',', star_etc.optional).optional
-    ),
-    star_etc
-)
+double_star_name = Concatenation('**', plain_name.optional)
+star_name = Concatenation('*', plain_name.optional)
+parameters = List(plain_name, name_with_default, star_name, double_star_name, separator=',')
+
+@attribute(double_star_name)
+def name(self):
+    return self.items[1].name
+
+@attribute(star_name)
+def name(self):
+    return self.items[1].name
 
 """ ---> stmt """
 # stmt: simple_stmt | compound_stmt

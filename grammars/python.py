@@ -8,7 +8,7 @@ from grammar import Alternation, Concatenation, List, Repetition, add_action, at
     NOTE WELL: You should also follow all the steps listed at https://devguide.python.org/grammar/
 """
 
-grammar.implicit_separator(re.compile(r'\s+'))
+grammar.implicit_separator(re.compile(r'[ \t]*'))
 
 def root():
     """ The name of the root rule of the grammar """
@@ -539,19 +539,24 @@ stmt = Alternation()
 # suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT
 suite = SimpleStatement | Concatenation(NEWLINE, INDENT, stmt.one_or_more)
 
-# funcdef: 'def' NAME parameters ['->' test] ':' suite
-funcdef = Concatenation('def', NAME, '(', parameters.optional, ')', Concatenation('->', _test).optional, ':', suite)
+# block: simple_stmt | NEWLINE INDENT a=statements DEDENT { a }
+# https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L118
+block = SimpleStatement | Concatenation(NEWLINE, INDENT, stmt.one_or_more, separator=None)
 
-@attribute(funcdef)
+# function_def: [decorators] [ASYNC] 'def' NAME '(' [parameters] ')' ['->' annotation] ':' block
+# https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L93
+function_def = Concatenation('def', NAME, '(', parameters.optional, ')', Concatenation('->', _test).optional, ':', block)
+
+@attribute(function_def)
 def name(self):
     return self.items[1].items
 
-@attribute(funcdef)
+@attribute(function_def)
 def parameters(self):
     return list(self.items[3])
 
 # async_funcdef: 'async' funcdef
-async_funcdef = Concatenation('async', funcdef)
+async_funcdef = Concatenation('async', function_def)
 
 # classdef: 'class' NAME ['(' [arglist] ')'] ':' suite
 classdef = Concatenation('class', NAME, Concatenation('(', arglist.optional, ')').optional, ':', suite)
@@ -563,7 +568,7 @@ decorator = Concatenation('@', dotted_name, Concatenation('(', arglist.optional,
 decorators = decorator.one_or_more
 
 # decorated: decorators (classdef | funcdef | async_funcdef)
-decorated = Concatenation(decorators, Alternation(classdef, funcdef, async_funcdef))
+decorated = Concatenation(decorators, Alternation(classdef, function_def, async_funcdef))
 
 # for_stmt: 'for' exprlist 'in' testlist ':' suite ['else' ':' suite]
 for_stmt = Concatenation('for', exprlist, 'in', testlist, ':', suite, Concatenation('else', ':', suite).optional)
@@ -575,7 +580,7 @@ with_item = Concatenation(_test, Concatenation('as', expression).optional)
 with_stmt = Concatenation('with', with_item, Concatenation(',', with_item).any,  ':', suite)
 
 # async_stmt: 'async' (funcdef | with_stmt | for_stmt)
-async_stmt = Concatenation('async', Alternation(funcdef, with_stmt, for_stmt))
+async_stmt = Concatenation('async', Alternation(function_def, with_stmt, for_stmt))
 
 # if_stmt: 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite]
 if_stmt = Concatenation('if', _test, ':', suite, Concatenation('elif', _test, ':', suite).any, Concatenation('else', ':', suite).optional)
@@ -601,7 +606,7 @@ try_stmt = Concatenation(
 )
 
 # compound_stmt: if_stmt | while_stmt | for_stmt | try_stmt | with_stmt | funcdef | classdef | decorated | async_stmt
-compound_stmt = Alternation(if_stmt, while_stmt, for_stmt, try_stmt, with_stmt, funcdef, classdef, decorated, async_stmt)
+compound_stmt = Alternation(if_stmt, while_stmt, for_stmt, try_stmt, with_stmt, function_def, classdef, decorated, async_stmt)
 
 stmt.append(SimpleStatement)
 stmt.append(compound_stmt)

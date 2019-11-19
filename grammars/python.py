@@ -490,6 +490,10 @@ def annotation(self):
 def name(self):
     return self.items[0].items
 
+@attribute(plain_name)
+def default(self):
+    return None
+
 # kwds: '**' NAME [':' annotation]
 # https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L111
 
@@ -498,8 +502,16 @@ def name(self):
 name_with_default = Concatenation(plain_name, '=', _test)
 
 @attribute(name_with_default)
+def annotation(self):
+    return None
+
+@attribute(name_with_default)
 def name(self):
     return self.items[0].name
+
+@attribute(name_with_default)
+def default(self):
+    return self.items[2]
 
 # names_with_default: name_with_default (',' name_with_default)*
 # https://github.com/gvanrossum/pegen/blob/1c93b8070875bd2da7519f1aa4fd2f0c74121f50/data/simpy.gram#L103
@@ -525,12 +537,46 @@ star_name = Concatenation('*', plain_name.optional)
 parameters = List(plain_name, name_with_default, star_name, double_star_name, separator=',')
 
 @attribute(double_star_name)
+def annotation(self):
+    try:
+        return self.items[1].annotation
+    except AttributeError:
+        return None
+
+@attribute(double_star_name)
 def name(self):
-    return self.items[1].name
+    try:
+        return self.items[1].name
+    except AttributeError:
+        return None
+
+@attribute(double_star_name)
+def default(self):
+    try:
+        return self.items[1].default
+    except AttributeError:
+        return None
+
+@attribute(star_name)
+def annotation(self):
+    try:
+        return self.items[1].annotation
+    except AttributeError:
+        return None
 
 @attribute(star_name)
 def name(self):
-    return self.items[1].name
+    try:
+        return self.items[1].name
+    except AttributeError:
+        return None
+
+@attribute(star_name)
+def default(self):
+    try:
+        return self.items[1].default
+    except AttributeError:
+        return None
 
 """ ---> stmt """
 # stmt: simple_stmt | compound_stmt

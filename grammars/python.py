@@ -59,16 +59,14 @@ test = Alternation()
 _test = test    # Alias for convenience
 
 # testlist: test (',' test)* [',']
-testlist = Concatenation(test, Concatenation(',', test).any, Repetition.optional(','))
+testlist = List(test, separator=',', trailing_separator=True)
 
 # sliceop: ':' [test]
 sliceop = Concatenation(':', _test.optional)
 
-# subscript: test | [test] ':' [test] [sliceop]
-subscript = _test | Concatenation(_test.optional, ':', _test.optional, sliceop.optional)
-
 # subscriptlist: subscript (',' subscript)* [',']
-subscriptlist = Concatenation(subscript, Concatenation(',', subscript).any, Repetition.optional(','))
+# subscript: test | [test] ':' [test] [sliceop]
+subscriptlist = List(_test, Concatenation(_test.optional, ':', _test.optional, sliceop.optional), separator=',', trailing_separator=True)
 
 # vfpdef: NAME
 vfpdef = NAME
@@ -166,11 +164,7 @@ or_test = Concatenation(
 star_expr = Concatenation('*', expr)
 
 # exprlist: (expr|star_expr) (',' (expr|star_expr))* [',']
-exprlist = Concatenation(
-    (expression|star_expr),
-    Concatenation(',', (expression|star_expr)).any,
-    Repetition.optional(',')
-)
+exprlist = List(expression, star_expr, separator=',')
 
 """ ---> test_nocond: or_test | lambdef_nocond """
 test_nocond = Alternation()
@@ -219,7 +213,7 @@ argument = Alternation(
 )
 
 # arglist: argument (',' argument)*  [',']
-arglist = Concatenation(argument, Concatenation(',', argument).any, Repetition.optional(','))
+arglist = List(argument, separator=',', trailing_separator=True)
 
 # dictorsetmaker: ( ((test ':' test | '**' expr)
 #                    (comp_for | (',' (test ':' test | '**' expr))* [','])) |
@@ -334,14 +328,7 @@ test.append(lambdef)
 # @group Statements
 
 # testlist_star_expr: (test|star_expr) (',' (test|star_expr))* [',']
-testlist_star_expr = Concatenation(
-    Alternation(
-        test,
-        star_expr,
-    ),
-    Concatenation(',', Alternation(test, star_expr)).any,
-    Repetition.optional(','),
-)
+testlist_star_expr = List(test, star_expr, trailing_separator=True)
 
 # For normal and annotated assignments, additional restrictions enforced by the interpreter
 
@@ -465,7 +452,7 @@ small_stmt = Alternation(
 )
 
 # simple_stmt: small_stmt (';' small_stmt)* [';'] NEWLINE
-SimpleStatement = Concatenation(small_stmt, Concatenation(';', small_stmt).any, Repetition.optional(';'))
+SimpleStatement = List(small_stmt, separator=';', trailing_separator=True)
 
 # NB compile.c makes sure that the default except clause is last
 # except_clause: 'except' [test ['as' NAME]]

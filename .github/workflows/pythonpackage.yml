@@ -10,7 +10,7 @@ jobs:
       max-parallel: 4
       matrix:
         python-version: [3.7]
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
     - uses: actions/checkout@v1
@@ -20,6 +20,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
+        git config --global url."https://token:${{ secrets.GITHUB_ACTIONS_API_TOKEN }}@github.com/".insteadOf "https://github.com/"
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     - name: Lint with flake8

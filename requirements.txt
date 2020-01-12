@@ -1,2 +1,3 @@
 -i https://pypi.org/simple
+git+https://github.com/bfoz/grammar-python@master#egg=grammar
 git+https://github.com/bfoz/parsers-python@master#egg=parsers
